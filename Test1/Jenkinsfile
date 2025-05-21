@@ -14,7 +14,7 @@ pipeline {
                 // window 일 경우 bat
                 bat '''
 		dir /s /b Test1\\src\\*.java > sources.txt
-  		javac -encoding UTF-8 -d classes @sources.txt
+  		javac -encoding UTF-8 -cp "lib\\junit-platform-console-standalone-1.7.1.jar" -d classes @sources.txt
 		'''
             }
         }
