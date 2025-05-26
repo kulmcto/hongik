@@ -6,7 +6,6 @@ pipeline {
         JUNIT_JAR_PATH = 'lib/junit.jar'
         CLASS_DIR = 'classes'
         REPORT_DIR = 'test-reports'
-        BASH = '"C:\\Program Files\\Git\\bin\\bash.exe"' // Windows에서 bash 경로
     }
 
     stages {
@@ -19,7 +18,12 @@ pipeline {
                             rm -rf classes/* lib/* test-reports/*
                         '''
                     } else {
-                        bat "${BASH} -c 'rm -rf classes/* lib/* test-reports/*'"
+                        bat '''
+                            echo [*] Cleaning previous build artifacts...
+                            if exist classes rmdir /s /q classes
+                            if exist lib rmdir /s /q lib
+                            if exist test-reports rmdir /s /q test-reports
+                        '''
                     }
                 }
             }
@@ -43,15 +47,14 @@ pipeline {
                             curl -L -o ${JUNIT_JAR_PATH} ${JUNIT_JAR_URL}
                         '''
                     } else {
-                        bat """
-                            ${BASH} -c '
-                                mkdir -p ${CLASS_DIR}
-                                mkdir -p ${REPORT_DIR}
-                                mkdir -p lib
-                                echo "[+] Downloading JUnit JAR..."
-                                curl -L -o ${JUNIT_JAR_PATH} ${JUNIT_JAR_URL}
-                            '
-                        """
+                        bat '''
+                            echo [+] Creating directories...
+                            mkdir classes
+                            mkdir test-reports
+                            mkdir lib
+                            echo [+] Downloading JUnit JAR...
+                            curl -L -o lib\\junit.jar https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/1.7.1/junit-platform-console-standalone-1.7.1.jar
+                        '''
                     }
                 }
             }
@@ -67,13 +70,11 @@ pipeline {
                             javac -d ../classes -cp ../lib/junit.jar:../lib/* src/student/*.java
                         '''
                     } else {
-                        bat """
-                            ${BASH} -c '
-                                echo "[+] Compiling source files..."
-                                cd project_2
-                                javac -d ../classes -cp ../lib/junit.jar:../lib/* src/student/*.java
-                            '
-                        """
+                        bat '''
+                            echo [+] Compiling source files...
+                            cd project_2
+                            javac -d ..\\classes -cp ..\\lib\\junit.jar;..\\lib\\* src\\student\\*.java
+                        '''
                     }
                 }
             }
@@ -89,13 +90,11 @@ pipeline {
                             java -jar ../lib/junit.jar --class-path ../classes --scan-class-path --reports-dir ../test-reports
                         '''
                     } else {
-                        bat """
-                            ${BASH} -c '
-                                echo "[+] Running tests..."
-                                cd project_2
-                                java -jar ../lib/junit.jar --class-path ../classes --scan-class-path --reports-dir ../test-reports
-                            '
-                        """
+                        bat '''
+                            echo [+] Running tests...
+                            cd project_2
+                            java -jar ..\\lib\\junit.jar --class-path ..\\classes --scan-class-path --reports-dir ..\\test-reports
+                        '''
                     }
                 }
             }
@@ -120,4 +119,3 @@ pipeline {
         }
     }
 }
-
