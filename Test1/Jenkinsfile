@@ -1,45 +1,123 @@
 pipeline {
     agent any
 
+    environment {
+        JUNIT_JAR_URL = 'https://repo1.maven.org/maven2/org/junit/platform/junit-platform-console-standalone/1.7.1/junit-platform-console-standalone-1.7.1.jar'
+        JUNIT_JAR_PATH = 'lib/junit.jar'
+        CLASS_DIR = 'classes'
+        REPORT_DIR = 'test-reports'
+        BASH = '"C:\\Program Files\\Git\\bin\\bash.exe"' // Windows에서 bash 경로
+    }
+
     stages {
+        stage('Clean') {
+            steps {
+                script {
+                    if (isUnix()) {
+                        sh '''
+                            echo "[*] Cleaning previous build artifacts..."
+                            rm -rf classes/* lib/* test-reports/*
+                        '''
+                    } else {
+                        bat "${BASH} -c 'rm -rf classes/* lib/* test-reports/*'"
+                    }
+                }
+            }
+        }
+
         stage('Checkout') {
             steps {
-                // 소스코드 체크아웃
                 checkout scm
             }
         }
-        stage('Build') {
+
+        stage('Prepare') {
             steps {
-                // Java 파일들을 컴파일하여 생성된 클래스 파일을 classes 디렉토리에 저장
-                // window 일 경우 bat
-                bat '''
-		mkdir classes
-                dir /s /b Test1\\src\\*.java > sources.txt
-                javac -encoding UTF-8 -cp "lib\\junit-platform-console-standalone-1.7.1.jar" -d classes @sources.txt
-		'''
+                script {
+                    if (isUnix()) {
+                        sh '''
+                            mkdir -p ${CLASS_DIR}
+                            mkdir -p ${REPORT_DIR}
+                            mkdir -p lib
+                            echo "[+] Downloading JUnit JAR..."
+                            curl -L -o ${JUNIT_JAR_PATH} ${JUNIT_JAR_URL}
+                        '''
+                    } else {
+                        bat """
+                            ${BASH} -c '
+                                mkdir -p ${CLASS_DIR}
+                                mkdir -p ${REPORT_DIR}
+                                mkdir -p lib
+                                echo "[+] Downloading JUnit JAR..."
+                                curl -L -o ${JUNIT_JAR_PATH} ${JUNIT_JAR_URL}
+                            '
+                        """
+                    }
+                }
             }
         }
-	stage('Test') {
-	    steps {
-		bat '''
-  		java -cp "classes;lib\\junit-platform-console-standalone-1.7.1.jar" ^
-    		org.junit.platform.console.ConsoleLauncher ^
-                --scan-class-path > test_results.txt
-		'''
-	    }
-	}
+
+        stage('Build') {
+            steps {
+                script {
+                    if (isUnix()) {
+                        sh '''
+                            echo "[+] Compiling source files..."
+                            cd project_2
+                            javac -d ../classes -cp ../lib/junit.jar:../lib/* src/student/*.java
+                        '''
+                    } else {
+                        bat """
+                            ${BASH} -c '
+                                echo "[+] Compiling source files..."
+                                cd project_2
+                                javac -d ../classes -cp ../lib/junit.jar:../lib/* src/student/*.java
+                            '
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                script {
+                    if (isUnix()) {
+                        sh '''
+                            echo "[+] Running tests..."
+                            cd project_2
+                            java -jar ../lib/junit.jar --class-path ../classes --scan-class-path --reports-dir ../test-reports
+                        '''
+                    } else {
+                        bat """
+                            ${BASH} -c '
+                                echo "[+] Running tests..."
+                                cd project_2
+                                java -jar ../lib/junit.jar --class-path ../classes --scan-class-path --reports-dir ../test-reports
+                            '
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            echo "[*] Archiving test results..."
+            junit "${REPORT_DIR}/**/*.xml"
+            archiveArtifacts artifacts: "${REPORT_DIR}/**/*", allowEmptyArchive: true
+        }
+
+        failure {
+            echo "Build or test failed"
+        }
+
+        success {
+            echo "Build and test succeeded"
+            writeFile file: 'success.txt', text: "Build succeeded on ${new Date()}"
+            archiveArtifacts artifacts: 'success.txt'
+        }
     }
 }
 
-post {
-        always {
-            // 테스트 결과 파일을 저장하기 위해 아카이브
-            archiveArtifacts 'test_results.txt'
-        }
-        failure {
-            echo 'Build or test failed'
-        }
-        success {
-            echo 'Build and test succeeded'
-        }
-    }
